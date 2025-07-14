@@ -1,19 +1,53 @@
 import 'package:presient/test1/database/database_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../model/genre_model.dart';
 import '../model/story_model.dart';
 
 class DatabaseController {
   final dbClient = DataBaseProvider.dataBaseProvider;
 
-  Future<int> createStory(Story? story) async {
+  Future<void> insertGenres(List<Genre> genres) async {
+    final db = await DataBaseProvider.dataBaseProvider.db;
+
+    final batch = db.batch();
+    for (var genre in genres) {
+      batch.insert('genresTable', genre.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<Genre>> getAllGenres() async {
+    final db = await DataBaseProvider.dataBaseProvider.db;
+    var result = await db.query("genresTable",orderBy: "id DESC");
+    return result.isNotEmpty ? result.map((e) => Genre.fromJson(e)).toList() : [];
+  }
+
+  Future<int> updateGenre(Genre genre) async {
     final db = await dbClient.db;
-    return db.insert("storiesTable", story!.toJson());
+    return db.update(
+      'genresTable',
+      genre.toJson(),
+      where: 'id = ?',
+      whereArgs: [genre.id],
+    );
+  }
+
+
+  Future<int> deleteGenre(String id) async {
+    final db = await dbClient.db;
+    return db.delete('genresTable', where: 'id = ?', whereArgs: [id]);
+  }
+
+
+  Future<int> createStory(Story story) async {
+    final db = await dbClient.db;
+    return db.insert("storiesTable", story.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Story>> getAllStories({List<String>? columns}) async {
     final db = await dbClient.db;
-    var result = await db.query("storiesTable", columns: columns,orderBy: "updateAt DESC");
+    var result = await db.query("storiesTable", columns: columns, orderBy: "updateAt DESC");
     return result.isNotEmpty ? result.map((e) => Story.fromJson(e)).toList() : [];
   }
 
@@ -28,7 +62,7 @@ class DatabaseController {
     return result.isNotEmpty ? result.map((e) => Story.fromJson(e)).toList() : [];
   }
 
-  Future<int> countStory({List<String>? columns, required String status}) async {
+  Future<int> countStory(String status) async {
     final db = await dbClient.db;
     final count = Sqflite.firstIntValue(
       await db.rawQuery("SELECT COUNT(*) FROM storiesTable WHERE status = $status AND deleted = 0"),

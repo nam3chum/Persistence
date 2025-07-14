@@ -18,7 +18,7 @@ abstract class ApiGenreService{
   Future<Genre> deleteGenre(@Path("id") String id);
 
   @PUT("/{id}")
-  Future<Genre> updateGenre(@Path("id") String id, @Body() Genre genre);
+  Future<Genre> updateGenre(@Path("id") String? id, @Body() Genre genre);
 
   @GET("/{id}")
   Future<Genre> getGenreById(@Path("id") String id);

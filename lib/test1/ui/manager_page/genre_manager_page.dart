@@ -1,5 +1,8 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+
 import '../../model/genre_model.dart';
 import '../../service/dio_client.dart';
 import '../../service/service_genre.dart';
@@ -56,7 +59,6 @@ class GenreManagementScreenState extends State<GenreManagementScreen> with Ticke
   Future<void> _loadGenres() async {
     setState(() => isLoading = true);
     try {
-      // Mock data for demo
       await Future.delayed(Duration(seconds: 1));
       final mockGenres = await genreService.getGenres();
 
@@ -450,12 +452,14 @@ class GenreFormScreenState extends State<GenreFormScreen> {
   final _nameController = TextEditingController();
   bool _isLoading = false;
   final genreService = ApiGenreService(Dio());
+  List<Genre> genres = [];
 
   @override
   void initState() {
     super.initState();
+    _loadGenres();
     if (widget.genre != null) {
-      _nameController.text = widget.genre!.name;
+      _nameController.text = widget.genre?.name ?? '';
     }
   }
 
@@ -465,25 +469,74 @@ class GenreFormScreenState extends State<GenreFormScreen> {
     super.dispose();
   }
 
+  Future<void> _loadGenres() async {
+    setState(() => _isLoading = true);
+    try {
+      await Future.delayed(Duration(seconds: 1));
+      final mockGenres = await genreService.getGenres();
+
+      setState(() {
+        genres = mockGenres;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("lỗi khi load danh sách thể loại: $e ")));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _saveGenre() async {
-    if (!_formKey.currentState!.validate()) return;
+    final currentState = _formKey.currentState;
+    if (currentState == null || !currentState.validate()) return;
+
+    final inputName = _nameController.text.trim().toLowerCase();
+
+    final isDuplicate = genres.any((g) {
+      final existingName = g.name.trim().toLowerCase();
+      final isSameName = existingName == inputName;
+
+
+      final isSameId = widget.genre != null && g.id == widget.genre!.id;
+      return isSameName && !isSameId;
+    });
+
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.warning_amber, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Tên thể loại đã tồn tại'),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
       final genre = Genre(id: widget.genre?.id ?? '', name: _nameController.text.trim());
 
       if (widget.genre == null) {
+
         await genreService.addGenre(genre);
       } else {
-        await genreService.updateGenre(widget.genre!.id, genre);
+        await genreService.updateGenre(widget.genre?.id, genre);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
               Text(widget.genre == null ? 'Thêm thể loại thành công' : 'Cập nhật thể loại thành công'),
             ],
           ),
@@ -499,8 +552,8 @@ class GenreFormScreenState extends State<GenreFormScreen> {
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.error, color: Colors.white),
-              SizedBox(width: 8),
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
               Text('Lỗi lưu thể loại: $e'),
             ],
           ),
@@ -601,7 +654,7 @@ class GenreFormScreenState extends State<GenreFormScreen> {
                               ),
                               Text(
                                 isEditing
-                                    ? 'Cập nhật thông tin thể loại "${widget.genre!.name}"'
+                                    ? 'Cập nhật thông tin thể loại "${widget.genre?.name}"'
                                     : 'Nhập thông tin thể loại mới',
                                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
                               ),
@@ -653,10 +706,11 @@ class GenreFormScreenState extends State<GenreFormScreen> {
                         fillColor: Colors.grey[50],
                       ),
                       validator: (value) {
-                        if (value?.trim().isEmpty == true) {
+                        value = '';
+                        if (value.trim().isEmpty == true) {
                           return 'Vui lòng nhập tên thể loại';
                         }
-                        if (value!.trim().length < 2) {
+                        if (value.trim().length < 2) {
                           return 'Tên thể loại phải có ít nhất 2 ký tự';
                         }
                         return null;

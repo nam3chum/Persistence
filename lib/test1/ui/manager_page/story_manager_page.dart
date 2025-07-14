@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -466,7 +468,7 @@ class StoryFormScreenState extends State<StoryFormScreen> {
 
   String _status = 'Đang tiến hành';
   List<String> _selectedGenres = [];
-  File? _selectedImage;
+  late File _selectedImage;
   bool _useImageUrl = true;
   bool _isLoading = false;
   List<String> statuses = ['Đang tiến hành', 'Hoàn thành', 'Tạm ngưng', 'Đã drop'];
@@ -484,8 +486,8 @@ class StoryFormScreenState extends State<StoryFormScreen> {
       _authorController.text = widget.story?.author ?? '';
       _imgUrlController.text = widget.story?.imgUrl ?? '';
       _numberOfChapterController.text = widget.story?.numberOfChapter.toString() ?? '';
-      _status = widget.story!.status;
-      _selectedGenres = List.from(widget.story!.genreId);
+      _status = widget.story?.status ?? '';
+      _selectedGenres = List.from(widget.story?.genreId ?? []);
     }
   }
 
@@ -521,18 +523,19 @@ class StoryFormScreenState extends State<StoryFormScreen> {
   }
 
   Future<void> _saveStory() async {
-    if (!_formKey.currentState!.validate()) return;
+    final currentState = _formKey.currentState;
+    if (currentState == null || !currentState.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       String imageUrl = _imgUrlController.text;
 
-      if (!_useImageUrl && _selectedImage != null) {
+      if (!_useImageUrl) {
         imageUrl = "";
       }
 
-      final story =  Story(
+      final story = Story(
         id: widget.story?.id ?? '',
         name: _nameController.text,
         originName: _originNameController.text,
@@ -549,7 +552,7 @@ class StoryFormScreenState extends State<StoryFormScreen> {
         await storyService.addStory(story);
         _showSnackBar('Thêm truyện thành công!');
       } else {
-        await storyService.updateStory(widget.story!.id, story);
+        await storyService.updateStory(widget.story?.id, story);
         _showSnackBar('Cập nhật truyện thành công!');
       }
 
@@ -791,7 +794,11 @@ class StoryFormScreenState extends State<StoryFormScreen> {
                                         ),
                                       )
                                       .toList(),
-                              onChanged: (value) => setState(() => _status = value!),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _status = value);
+                                }
+                              },
                             ),
                           ),
                         ),
@@ -816,14 +823,22 @@ class StoryFormScreenState extends State<StoryFormScreen> {
                         Radio<bool>(
                           value: true,
                           groupValue: _useImageUrl,
-                          onChanged: (value) => setState(() => _useImageUrl = value!),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _useImageUrl = value);
+                            }
+                          },
                         ),
                         Text('Image URL'),
                         SizedBox(width: 20),
                         Radio<bool>(
                           value: false,
                           groupValue: _useImageUrl,
-                          onChanged: (value) => setState(() => _useImageUrl = value!),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _useImageUrl = value);
+                            }
+                          },
                         ),
                         Text('Upload Image'),
                       ],
@@ -836,12 +851,11 @@ class StoryFormScreenState extends State<StoryFormScreen> {
                     else
                       Column(
                         children: [
-                          if (_selectedImage != null)
-                            SizedBox(
-                              height: 200,
-                              width: double.infinity,
-                              child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                            ),
+                          SizedBox(
+                            height: 200,
+                            width: double.infinity,
+                            child: Image.file(_selectedImage, fit: BoxFit.cover),
+                          ),
                           SizedBox(height: 8),
                           ElevatedButton(onPressed: _pickImage, child: Text('Select Image')),
                         ],

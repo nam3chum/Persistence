@@ -19,7 +19,7 @@ class StoryDetailPage extends StatefulWidget {
 }
 
 class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderStateMixin {
-  Story? story;
+  late Story story;
   List<Genre> genreList = [];
   bool isLoading = true;
   bool isBookmarked = false;
@@ -29,6 +29,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
   final genreService = ApiGenreService(Dio());
   final storyService = ApiStoryService(Dio());
   final DatabaseController dbController = DatabaseController();
+  bool hasError = false;
 
   @override
   void initState() {
@@ -50,10 +51,17 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
   }
 
   Future<void> loadGenres() async {
-    final genres = await genreService.getGenres();
-    setState(() {
-      genreList = genres.cast<Genre>();
-    });
+    try {
+      final genres = await genreService.getGenres();
+      setState(() {
+        genreList = genres.cast<Genre>();
+      });
+    } catch (e) {
+      final localGenres = await dbController.getAllGenres();
+      setState(() {
+        genreList = localGenres;
+      });
+    }
   }
 
   Future<void> checkBookMarked() async {
@@ -67,39 +75,55 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
   Future<void> fetchStory() async {
     try {
       final result = await storyService.getStoryById(widget.id);
+
       setState(() {
-        story = result as Story?;
+        story = result;
         isLoading = false;
       });
+
       _animationController.forward();
-      await dbController.createStory(story);
     } catch (e) {
-      final localStory = await dbController.getStoryById(widget.id);
-      if (localStory != null) {
+      debugPrint('Lỗi tải từ API: $e');
+
+      // Thử lấy từ local DB
+      try {
+        final localStory = await dbController.getStoryById(widget.id);
+
+        if (localStory != null) {
+          setState(() {
+            story = localStory;
+            isLoading = false;
+          });
+          _animationController.forward();
+        } else {
+          // Không có luôn trong DB
+          setState(() {
+            isLoading = false;
+            hasError = true;
+          });
+        }
+      } catch (e2) {
+        debugPrint('Lỗi tải từ DB local: $e2');
+
+        // Cả 2 cùng lỗi
         setState(() {
-          story = localStory;
           isLoading = false;
-        });
-        _animationController.forward();
-      } else {
-        setState(() {
-          story = null;
-          isLoading = false;
+          hasError = true;
         });
       }
     }
   }
 
-
-  Future<void> toggleBookmark(Story? story) async {
+  Future<void> toggleBookmark(Story story) async {
     setState(() {
       isBookmarked = !isBookmarked;
     });
     if (isBookmarked) {
       await dbController.createStory(story);
     } else {
-      await dbController.deleteStory(story?.id);
+      await dbController.deleteStory(story.id);
     }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isBookmarked ? 'Đã thêm vào kệ sách' : 'Đã xóa khỏi kệ sách'),
@@ -110,10 +134,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
     );
   }
 
-  void readStory() {
-    if (story == null) return;
-    // Navigate to reading page
-  }
+  void readStory() {}
 
   void loadTableOfContents() {
     showModalBottomSheet(
@@ -163,31 +184,165 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
       );
     }
 
-    if (story == null) {
+    if (hasError) {
       return Scaffold(
         backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-              const SizedBox(height: 20),
-              const Text('Không thể tải truyện', style: TextStyle(color: Colors.white, fontSize: 18)),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          child: Container(
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey[800]!),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
-                child: const Text('Quay lại'),
-              ),
-            ],
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Error Icon với animation
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
+                  ),
+                  child: Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Error Title
+                const Text(
+                  "Oops! Có lỗi xảy ra",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 12),
+
+                // Error Message
+                Text(
+                  "Không thể tải truyện. Vui lòng kiểm tra kết nối mạng và thử lại.",
+                  style: TextStyle(fontSize: 16, color: Colors.grey[300], height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 32),
+
+                // Action Buttons
+                Row(
+                  children: [
+
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Colors.orange, Colors.deepOrange]),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              setState(() {
+                                isLoading = true;
+                                hasError = false;
+                              });
+                              fetchStory();
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.refresh, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Thử lại",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey[700]!),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => Navigator.pop(context),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                                SizedBox(height: 2),
+                                Text(
+                                  "Quay lại",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
@@ -242,9 +397,9 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
                   fit: StackFit.expand,
                   children: [
                     Hero(
-                      tag: 'story_${story!.id}',
+                      tag: 'story_${story.id}',
                       child: Image.network(
-                        story!.imgUrl,
+                        story.imgUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
@@ -307,7 +462,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            story!.name,
+            story.name,
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -316,15 +471,15 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
             ),
           ),
           const SizedBox(height: 12),
-          if (story!.author.isNotEmpty)
+          if (story.author.isNotEmpty)
             Row(
               children: [
                 Icon(Icons.person, size: 16, color: Colors.grey[400]),
                 const SizedBox(width: 8),
-                Text(story!.author, style: TextStyle(fontSize: 16, color: Colors.grey[300])),
+                Text(story.author, style: TextStyle(fontSize: 16, color: Colors.grey[300])),
               ],
             ),
-          if (story!.originName.isNotEmpty) ...[
+          if (story.originName.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -332,7 +487,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    story!.originName,
+                    story.originName,
                     style: const TextStyle(
                       fontSize: 16,
                       color: Colors.orangeAccent,
@@ -355,7 +510,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
         spacing: 10,
         runSpacing: 8,
         children:
-            story!.genreId.map((e) {
+            story.genreId.map((e) {
               final genre = genreList.firstWhere(
                 (g) => g.id == e.toString(),
                 orElse: () => Genre(id: e.toString(), name: 'Không rõ'),
@@ -423,7 +578,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
             Container(width: 1, height: 40, color: Colors.grey[700]),
             _buildStatItem(Icons.favorite, "4.8", "Đánh giá"),
             Container(width: 1, height: 40, color: Colors.grey[700]),
-            _buildStatItem(Icons.menu_book, story!.numberOfChapter.toString(), "Chương"),
+            _buildStatItem(Icons.menu_book, story.numberOfChapter.toString(), "Chương"),
           ],
         ),
       ),
@@ -463,7 +618,7 @@ class StoryDetailPageState extends State<StoryDetailPage> with TickerProviderSta
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Html(
-                  data: story!.content,
+                  data: story.content,
                   style: {
                     "body": Style(
                       color: Colors.grey[300],

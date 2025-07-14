@@ -31,7 +31,7 @@ abstract class ApiStoryService {
   Future<Story> deleteStory(@Path("id") String id);
 
   @PUT("/{id}")
-  Future<Story> updateStory(@Path("id") String id, @Body() Story story);
+  Future<Story> updateStory(@Path("id") String? id, @Body() Story story);
 
   @PATCH("/{id}")
   Future<Story> patchStory(@Path("id") String id, @Body() Map<String, dynamic> data);

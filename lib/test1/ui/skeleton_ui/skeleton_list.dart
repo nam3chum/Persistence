@@ -207,7 +207,6 @@ class SkeletonListState extends State<SkeletonList> with TickerProviderStateMixi
                         ),
                         const SizedBox(height: 12),
 
-                        // Skeleton Genres
                         Row(
                           children: [
                             Container(

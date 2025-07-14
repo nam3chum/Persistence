@@ -87,7 +87,7 @@ class _ApiGenreService implements ApiGenreService {
   }
 
   @override
-  Future<Genre> updateGenre(String id, Genre genre) async {
+  Future<Genre> updateGenre(String? id, Genre genre) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
