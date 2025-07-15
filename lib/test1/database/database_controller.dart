@@ -19,26 +19,19 @@ class DatabaseController {
 
   Future<List<Genre>> getAllGenres() async {
     final db = await DataBaseProvider.dataBaseProvider.db;
-    var result = await db.query("genresTable",orderBy: "id DESC");
+    var result = await db.query("genresTable", orderBy: "id DESC");
     return result.isNotEmpty ? result.map((e) => Genre.fromJson(e)).toList() : [];
   }
 
   Future<int> updateGenre(Genre genre) async {
     final db = await dbClient.db;
-    return db.update(
-      'genresTable',
-      genre.toJson(),
-      where: 'id = ?',
-      whereArgs: [genre.id],
-    );
+    return db.update('genresTable', genre.toJson(), where: 'id = ?', whereArgs: [genre.id]);
   }
-
 
   Future<int> deleteGenre(String id) async {
     final db = await dbClient.db;
     return db.delete('genresTable', where: 'id = ?', whereArgs: [id]);
   }
-
 
   Future<int> createStory(Story story) async {
     final db = await dbClient.db;

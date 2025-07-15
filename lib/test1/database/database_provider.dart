@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DataBaseProvider {
@@ -11,13 +12,22 @@ class DataBaseProvider {
 
   Future<Database> createDatabase() async {
     Directory? dir;
+    // try {
+    //   if (await Permission.storage.request().isGranted) {
+    //     dir = await getExternalStorageDirectory();
+    //   } else {
+    //     debugPrint("không truy cập được thư mục");
+    //   }
+    // } catch (e) {
+    //   debugPrint("Lỗi : $e");
+    // }
 
     dir = await getApplicationDocumentsDirectory();
     String path = join(dir.path, "Stories.db");
     debugPrint("đươờng dẫn : $path");
     return await openDatabase(
       path,
-      version: 2,
+      version: 1,
       onCreate: (db, version) async {
         await db.execute('''
         CREATE TABLE genresTable (

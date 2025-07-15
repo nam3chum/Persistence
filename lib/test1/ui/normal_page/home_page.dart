@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:presient/test1/ui/normal_page/setting_page.dart';
 import 'package:presient/test1/ui/personal_page/my_list_story.dart';
+
 import '../../model/genre_model.dart';
 import '../../model/story_model.dart';
 import '../../service/dio_client.dart';
@@ -76,7 +77,7 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
     try {
       final loaded = await storyService.getStories();
       final loadGenre = await genreService.getGenres();
-      print(" ${loaded.length} stories fetched");
+      debugPrint(" ${loaded.length} stories fetched");
       setState(() {
         listGenre = loadGenre.cast<Genre>();
         listStory = loaded.cast<Story>();
@@ -84,7 +85,7 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
       _animationController.forward();
     } on DioException catch (e) {
-      print(' Error loading stories: ${e.requestOptions}');
+      debugPrint(' Error loading stories: ${e.requestOptions}');
       setState(() => isLoading = false);
     }
   }
@@ -194,20 +195,20 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final story = listStory[index];
-    return FadeTransition(
-    opacity: _fadeAnimation,
-    child: SlideTransition(
-    position: Tween<Offset>(begin: Offset(0, 0.3), end: Offset.zero).animate(
-    CurvedAnimation(
-    parent: _animationController,
-    curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
-    ),
-    ),
-    child: GestureDetector(
-    onTap: () {
-    Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => StoryDetailPage(id: story.id)),
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(begin: Offset(0, 0.3), end: Offset.zero).animate(
+                          CurvedAnimation(
+                            parent: _animationController,
+                            curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
+                          ),
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => StoryDetailPage(id: story.id)),
                             );
                           },
                           child: BuildEnhancedStoryItem(
